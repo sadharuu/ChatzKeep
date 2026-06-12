@@ -19,7 +19,7 @@ export const SocketProvider = ({
 
   useEffect(() => {
     const newSocket = io(
-      "http://localhost:4000"
+      process.env.NEXT_PUBLIC_SOCKET_URL || "http://localhost:4000"
     );
 
     setSocket(newSocket);

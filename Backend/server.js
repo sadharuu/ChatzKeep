@@ -10,7 +10,10 @@ const userRoutes = require("./routes/userRouter");
 const messageRoutes = require("./routes/messageRouter");
 const notificationRoutes = require("./routes/notificationRouter");
 
-
+const corsOptions = {
+  origin: [process.env.FRONTEND_URL, "http://localhost:3000"],
+  credentials: true,
+};
 
 
 
