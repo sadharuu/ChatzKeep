@@ -24,10 +24,10 @@ export default function SettingsPage() {
   const [isSaving, setIsSaving] = useState(false);
   const fileRef = useRef(null);
 
-  // Form State
+  // Form State - Standardized to use secondName to match your Mongoose Schema precisely
   const [formData, setFormData] = useState({
     firstName: "",
-    lastName: "",
+    secondName: "",
     phone: "",
     website: "",
     address: "",
@@ -46,10 +46,10 @@ export default function SettingsPage() {
       const userData = res.data.user;
       setUser(userData);
       
-      // Seed form values
+      // Seed form values using secondName
       setFormData({
         firstName: userData?.firstName || "",
-        lastName: userData?.lastName || "",
+        secondName: userData?.secondName || "",
         phone: userData?.phone || "",
         website: userData?.website || "",
         address: userData?.address || "",
@@ -88,7 +88,6 @@ export default function SettingsPage() {
   const handleSaveChanges = async () => {
     setIsSaving(true);
     try {
-      // Assuming your update route endpoint is a PUT request to /user/update or similar
       const res = await api.put("/user/update", formData);
       setUser(res.data.user);
       setIsEditing(false);
@@ -180,7 +179,7 @@ export default function SettingsPage() {
 
               <div>
                 <h3 className="font-semibold text-lg text-gray-800">
-                  {user?.firstName} {user?.lastName}
+                  {user?.firstName} {user?.secondName}
                 </h3>
                 <p className="text-gray-400 text-sm">
                   {user?.email}
@@ -224,13 +223,13 @@ export default function SettingsPage() {
                     {isEditing ? (
                       <input 
                         type="text" 
-                        name="lastName"
-                        value={formData.lastName}
+                        name="secondName"
+                        value={formData.secondName}
                         onChange={handleInputChange}
                         className="w-full bg-gray-50 border border-gray-200 rounded-xl px-4 py-2 text-sm text-gray-700 outline-none focus:border-[#2A836D]"
                       />
                     ) : (
-                      <p className="text-sm font-medium text-gray-700">{user?.lastName || "—"}</p>
+                      <p className="text-sm font-medium text-gray-700">{user?.secondName || "—"}</p>
                     )}
                   </div>
                 </div>
