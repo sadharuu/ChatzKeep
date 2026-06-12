@@ -14,7 +14,7 @@ const notificationRoutes = require("./routes/notificationRouter");
 // to guarantee that CORS will never read an "undefined" key if Render has environment latency.
 const allowedOrigins = [
   process.env.FRONTEND_URL,
-  "https://chatzkeep-zeta.vercel.app", 
+  "https://chatzekeep.vercel.app", 
   "http://localhost:3000"
 ];
 
