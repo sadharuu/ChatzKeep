@@ -63,7 +63,7 @@ export default function Sidebar() {
       <div className="bg-gradient-to-br from-[#2A836D] to-[#56b39d] rounded-2xl p-4 text-white">
 
         <div className="bg-white/20 w-10 h-10 rounded-full flex items-center justify-center mb-4">
-          💬
+          👑
         </div>
 
         <h3 className="font-semibold text-sm mb-2">
