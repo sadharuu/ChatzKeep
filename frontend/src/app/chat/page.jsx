@@ -116,7 +116,7 @@ export default function ChatPage() {
   };
 
   return (
-    <div className="h-screen bg-[#F8F9FA] flex overflow-hidden">
+    <div className="h-screen bg-[#F8F9FA] font-custom flex overflow-hidden">
       <Sidebar />
 
       <div className="flex flex-col flex-1 overflow-hidden">
