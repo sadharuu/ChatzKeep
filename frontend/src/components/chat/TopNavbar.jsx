@@ -1,7 +1,8 @@
 "use client";
 
 import { useEffect, useState, useRef } from "react";
-import { Search, Bell, User, X } from "lucide-react";
+import { usePathname } from "next/navigation"; // Hook to detect active navigation tab
+import { Bell, User, X } from "lucide-react";
 import api from "@/services/api";
 
 export default function TopNavbar({ users = [], selectedUser, refreshUsers, lastMessagesMap = {} }) {
@@ -9,6 +10,8 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); 
   const dropdownRef = useRef(null);
+  
+  const pathname = usePathname(); // Reads current URL path string (e.g. "/chat" or "/settings")
 
   useEffect(() => {
     fetchProfile();
@@ -33,32 +36,33 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
     }
   };
 
+  // Determine dynamic string title based on route configurations
+  const getHeaderTitle = () => {
+    if (pathname?.includes("settings")) {
+      return "Settings";
+    }
+    return "Message"; // Fallback route state default
+  };
+
   // --- FILTER LOGIC ---
-// Filters out any user who doesn't have an active message string stored in memory
-const allNotifications = users.filter((u) => {
-  return lastMessagesMap[u?._id] !== undefined && lastMessagesMap[u?._id] !== "";
-});
+  const allNotifications = users.filter((u) => {
+    return lastMessagesMap[u?._id] !== undefined && lastMessagesMap[u?._id] !== "";
+  });
 
-// "Unread" Section: Filters active chat users who also have an unread flag/counter triggered
-const unreadNotifications = allNotifications.filter((u) => {
-  if (selectedUser?._id === u?._id) return false; // Hide if currently reading their chat window
-  return u.unreadCount > 0 || u.isUnread === true || u.hasNewMessage === true;
-});
+  const unreadNotifications = allNotifications.filter((u) => {
+    if (selectedUser?._id === u?._id) return false; 
+    return u.unreadCount > 0 || u.isUnread === true || u.hasNewMessage === true;
+  });
 
-const totalUnreadCount = unreadNotifications.length;
-const currentList = activeTab === "all" ? allNotifications : unreadNotifications;
+  const totalUnreadCount = unreadNotifications.length;
+  const currentList = activeTab === "all" ? allNotifications : unreadNotifications;
 
   return (
     <div className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 relative z-50">
       
-      {/* Search Bar */}
-      <div className="relative w-[450px]">
-        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
-        <input
-          type="text"
-          placeholder="Search candidate, vacancy etc..."
-          className="w-full bg-gray-50 border border-gray-200 rounded-xl pl-11 pr-4 py-3 outline-none focus:border-[#2A836D]"
-        />
+      {/* Dynamic Text Section Header */}
+      <div className="text-xl font-bold text-gray-800 tracking-wide font-custom">
+        {getHeaderTitle()}
       </div>
 
       {/* Controls Container */}
@@ -135,8 +139,6 @@ const currentList = activeTab === "all" ? allNotifications : unreadNotifications
                 currentList.map((item) => {
                   const participantName = `${item?.firstName || ""} ${item?.lastName || ""}`.trim() || "User";
                   const participantProfile = item?.profile;
-                  
-                  // Cascading verification layer lookup to catch and match structural text strings fields
                   const displaySubText = lastMessagesMap[item?._id] || "No messages exchanged yet";
 
                   return (
