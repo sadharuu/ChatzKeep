@@ -60,7 +60,8 @@ export default function SettingsPage() {
     } catch (error) {
       console.log("Error loading profile:", error);
     } finally {
-      loading(false);
+      // FIX: Changed 'loading(false)' to 'setLoading(false)' to prevent application lifecycle crashes
+      setLoading(false);
     }
   };
 
@@ -78,8 +79,7 @@ export default function SettingsPage() {
       uploadData.append("profile", file);
 
       const res = await api.put("/user/upload-profile", uploadData);
-      setUser(res.data.user);
-      window.location.reload();
+      setUser(res.data.user); // Dynamically update user state without forced full page document refresh
     } catch (error) {
       console.log("Profile upload failed:", error);
     }
@@ -88,7 +88,8 @@ export default function SettingsPage() {
   const handleSaveChanges = async () => {
     setIsSaving(true);
     try {
-      const res = await api.put("/user/update", formData);
+      // FIX: Changed targeted path wrapper endpoint from '/user/update' to '/user/me' to resolve backend 404
+      const res = await api.put("/user/me", formData);
       setUser(res.data.user);
       setIsEditing(false);
     } catch (error) {
@@ -114,7 +115,7 @@ export default function SettingsPage() {
       {/* Main Content Layout Block */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* Top Navbar - Clean implementation pulling data from Context automatically */}
+        {/* Top Navbar */}
         <TopNavbar selectedUser={null} />
         
         <input type="file" hidden ref={fileRef} onChange={handleProfileUpload}/>
