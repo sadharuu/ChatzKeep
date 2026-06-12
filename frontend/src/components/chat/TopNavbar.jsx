@@ -3,21 +3,39 @@
 import { useEffect, useState, useRef } from "react";
 import { Search, Bell, User, X } from "lucide-react";
 import api from "@/services/api";
+import { useSocket } from "@/context/SocketContext"; // Importing your existing socket hook
 
 export default function TopNavbar() {
+  const socket = useSocket();
   const [user, setUser] = useState(null);
-  const [conversations, setConversations] = useState([]); // Dynamic chat notification list
+  const [conversations, setConversations] = useState([]); 
   const [showNotifications, setShowNotifications] = useState(false);
-  const [activeTab, setActiveTab] = useState("all"); // 'all' or 'unread'
+  const [activeTab, setActiveTab] = useState("all"); 
   
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetchProfile();
     fetchNotificationChats();
-    
-    // Optional: Set up an interval or socket listener here to keep data fresh
   }, []);
+
+  // REAL-TIME UPDATES: Listen for incoming messages to refresh the notification list automatically
+  useEffect(() => {
+    if (!socket) return;
+
+    const handleIncomingMessage = (message) => {
+      // Re-fetch conversations from database when a message lands
+      fetchNotificationChats();
+    };
+
+    socket.on("message received", handleIncomingMessage);
+    socket.on("newMessage", handleIncomingMessage); // Fallback for alternative event name
+
+    return () => {
+      socket.off("message received", handleIncomingMessage);
+      socket.off("newMessage", handleIncomingMessage);
+    };
+  }, [socket]);
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -41,25 +59,28 @@ export default function TopNavbar() {
 
   const fetchNotificationChats = async () => {
     try {
-      // Replace with your real chat/conversations list endpoint
       const res = await api.get("/chat/conversations");
-      // Expecting array format: [{ _id, name, profile, lastMessage, unreadCount, updatedAt }]
-      setConversations(res.data || []);
+      // Fallback arrays to handle different common MERN response structures (res.data or res.data.conversations)
+      const data = Array.isArray(res.data) ? res.data : (res.data.conversations || []);
+      setConversations(data);
     } catch (error) {
       console.log("Error fetching notifications data:", error);
     }
   };
 
-  // --- Filter Logic ---
-  // "All": Everyone you've messaged or interacted with
-  const allNotifications = conversations;
+  // --- SAFE FILTER LOGIC ---
+  // "All": Anyone you've interacted with who has at least one message history
+  const allNotifications = conversations.filter(chat => chat.lastMessage || chat.unreadCount >= 0);
 
-  // "Unread": People who messaged you, but you haven't opened the chat yet
-  const unreadNotifications = conversations.filter(chat => chat.unreadCount > 0);
+  // "Unread": Displays people who messaged you that you haven't read yet
+  // Added a fallback check: if unreadCount > 0 OR if the last message's sender is NOT you and chat is unread
+  const unreadNotifications = conversations.filter(chat => {
+    const hasUnreadCount = chat.unreadCount > 0;
+    const isIncomingNotMe = chat.lastMessageSender && chat.lastMessageSender !== user?._id;
+    return hasUnreadCount || (isIncomingNotMe && chat.isUnread);
+  });
 
-  // Total count indicator badge on the bell icon
   const totalUnreadCount = unreadNotifications.length;
-
   const currentList = activeTab === "all" ? allNotifications : unreadNotifications;
 
   return (
@@ -78,23 +99,26 @@ export default function TopNavbar() {
         />
       </div>
 
-      {/* Right Side Controls wrapper */}
+      {/* Right Side Controls */}
       <div className="flex items-center gap-5" ref={dropdownRef}>
 
-        {/* Notification Button */}
+        {/* Notification Bell Button */}
         <button 
-          onClick={() => setShowNotifications(!showNotifications)}
+          onClick={() => {
+            setShowNotifications(!showNotifications);
+            fetchNotificationChats(); // Refresh data whenever user opens the dropdown
+          }}
           className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors relative cursor-pointer ${
             showNotifications ? "bg-gray-100 border-[#2A836D] text-[#2A836D]" : "border-gray-200 hover:bg-gray-100 text-gray-700"
           }`}
         >
           <Bell size={18} />
           {totalUnreadCount > 0 && (
-            <span className="absolute top-2.5 right-2.5 h-2 w-2 bg-red-500 rounded-full ring-2 ring-white animate-pulse"></span>
+            <span className="absolute top-2.5 right-2.5 h-2.5 w-2.5 bg-red-500 rounded-full ring-2 ring-white animate-pulse"></span>
           )}
         </button>
 
-        {/* Profile Avatar Container */}
+        {/* Profile Avatar */}
         <div className="w-11 h-11 rounded-full overflow-hidden border border-gray-200">
           {user?.profile ? (
             <img
@@ -109,11 +133,11 @@ export default function TopNavbar() {
           )}
         </div>
 
-        {/* --- Dynamic Notification Modal Overlay --- */}
+        {/* --- Dropdown Notification Panel --- */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
             
-            {/* Header section */}
+            {/* Header */}
             <div className="p-4 pb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800">Notification</h3>
               <button 
@@ -124,7 +148,7 @@ export default function TopNavbar() {
               </button>
             </div>
 
-            {/* Nav Filter Tabs */}
+            {/* Filter Tabs */}
             <div className="flex px-4 border-b border-gray-100 text-xs font-medium">
               <button
                 onClick={() => setActiveTab("all")}
@@ -146,9 +170,7 @@ export default function TopNavbar() {
               >
                 Unread
                 {totalUnreadCount > 0 && (
-                  <span className={`text-[10px] px-1.5 py-0.2 rounded-full ${
-                    activeTab === "unread" ? "bg-[#2A836D]/10 text-[#2A836D]" : "bg-gray-100 text-gray-500"
-                  }`}>
+                  <span className="text-[10px] px-1.5 py-0.2 rounded-full bg-red-50 text-red-600 font-semibold">
                     {totalUnreadCount}
                   </span>
                 )}
@@ -158,52 +180,58 @@ export default function TopNavbar() {
               </button>
             </div>
 
-            {/* Active Content Item List Wrapper */}
+            {/* Content List Items */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
-                currentList.map((chat) => (
-                  <div 
-                    key={chat._id} 
-                    className={`p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer ${
-                      chat.unreadCount > 0 ? "bg-emerald-50/20" : ""
-                    }`}
-                  >
-                    {/* User profile picture frame */}
-                    <div className="h-9 w-9 rounded-full overflow-hidden border border-gray-100 shrink-0 relative bg-gray-50 flex items-center justify-center">
-                      {chat.profile ? (
-                        <img 
-                          src={chat.profile} 
-                          alt={chat.name} 
-                          className="h-full w-full object-cover" 
-                        />
-                      ) : (
-                        <User size={16} className="text-gray-400" />
-                      )}
-                    </div>
+                currentList.map((chat) => {
+                  // Resolve dynamic name fields depending on whether populating user object or clean strings
+                  const participantName = chat.name || chat.participants?.find(p => p._id !== user?._id)?.name || "User";
+                  const participantProfile = chat.profile || chat.participants?.find(p => p._id !== user?._id)?.profile;
 
-                    {/* Chat Text Details Container */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center justify-between gap-1">
-                        <h4 className="text-xs font-semibold text-gray-800 truncate">
-                          {chat.name || "Unknown User"}
-                        </h4>
-                        
-                        {chat.unreadCount > 0 && (
-                          <span className="text-[10px] bg-[#2A836D] text-white font-medium px-1.5 py-0.5 rounded-full shrink-0">
-                            {chat.unreadCount} new
-                          </span>
+                  return (
+                    <div 
+                      key={chat._id} 
+                      className={`p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer ${
+                        chat.unreadCount > 0 ? "bg-emerald-50/10" : ""
+                      }`}
+                    >
+                      {/* Avatar container */}
+                      <div className="h-9 w-9 rounded-full overflow-hidden border border-gray-100 shrink-0 relative bg-gray-50 flex items-center justify-center">
+                        {participantProfile ? (
+                          <img 
+                            src={participantProfile} 
+                            alt={participantName} 
+                            className="h-full w-full object-cover" 
+                          />
+                        ) : (
+                          <User size={16} className="text-gray-400" />
                         )}
                       </div>
-                      
-                      <p className={`text-[11px] truncate mt-0.5 ${
-                        chat.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-400"
-                      }`}>
-                        {chat.lastMessage || "No messages yet"}
-                      </p>
-                    </div>
 
-                  </div>
-                ))
+                      {/* Info Details text context block */}
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center justify-between gap-1">
+                          <h4 className="text-xs font-semibold text-gray-800 truncate">
+                            {participantName}
+                          </h4>
+                          
+                          {chat.unreadCount > 0 && (
+                            <span className="text-[9px] bg-[#2A836D] text-white font-bold px-1.5 py-0.5 rounded-full shrink-0">
+                              {chat.unreadCount} New
+                            </span>
+                          )}
+                        </div>
+                        
+                        <p className={`text-[11px] truncate mt-0.5 ${
+                          chat.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-400"
+                        }`}>
+                          {chat.lastMessage || "Sent a message"}
+                        </p>
+                      </div>
+
+                    </div>
+                  );
+                })
               ) : (
                 <div className="p-10 text-center text-xs text-gray-400 font-light">
                   {activeTab === "unread" 
