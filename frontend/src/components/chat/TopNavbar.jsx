@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Search, Bell, User, X } from "lucide-react";
 import api from "@/services/api";
 
-export default function TopNavbar({ conversations = [], refreshConversations }) {
+export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
   const [user, setUser] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); 
@@ -33,12 +33,17 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
     }
   };
 
-  // --- FILTER LOGIC ---
-  const allNotifications = conversations;
+  // --- RENDERING FILTER LOGIC ---
+  // "All": Shows every person you've messaged/interacted with
+  const allNotifications = users;
 
-  // Checks if unreadCount exists, or if a global unread flag matches true
-  const unreadNotifications = conversations.filter(chat => {
-    return (chat.unreadCount && chat.unreadCount > 0) || chat.isUnread === true;
+  // "Unread": Shows only the people who messaged you while their chat window was closed
+  const unreadNotifications = users.filter((u) => {
+    // Exclude the currently open chat session from flagging unread states
+    if (selectedUser?._id === u?._id) return false;
+    
+    // Check fields commonly used by messaging backends (unreadCount, isUnread, or custom notification flags)
+    return u.unreadCount > 0 || u.isUnread === true || u.hasNewMessage === true;
   });
 
   const totalUnreadCount = unreadNotifications.length;
@@ -57,14 +62,14 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
         />
       </div>
 
-      {/* Right Controls */}
+      {/* Right Controls Container */}
       <div className="flex items-center gap-5" ref={dropdownRef}>
         
-        {/* Bell Trigger */}
+        {/* Notification Bell */}
         <button 
           onClick={() => {
             setShowNotifications(!showNotifications);
-            if (refreshConversations) refreshConversations();
+            if (refreshUsers) refreshUsers(); // Refresh statuses when opened
           }}
           className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors relative cursor-pointer ${
             showNotifications ? "bg-gray-100 border-[#2A836D] text-[#2A836D]" : "border-gray-200 hover:bg-gray-100 text-gray-700"
@@ -76,7 +81,7 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
           )}
         </button>
 
-        {/* Profile Avatar */}
+        {/* Profile Avatar Frame */}
         <div className="w-11 h-11 rounded-full overflow-hidden border border-gray-200">
           {user?.profile ? (
             <img src={user.profile} alt="Profile" className="w-full h-full object-cover" />
@@ -87,7 +92,7 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
           )}
         </div>
 
-        {/* --- Notification Box Drawer Dropdown --- */}
+        {/* Dropdown Container overlay */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
             <div className="p-4 pb-2 flex items-center justify-between">
@@ -97,7 +102,7 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
               </button>
             </div>
 
-            {/* Filter Navigation Tabs */}
+            {/* Nav Filter Navigation Tabs */}
             <div className="flex px-4 border-b border-gray-100 text-xs font-medium">
               <button
                 onClick={() => setActiveTab("all")}
@@ -125,19 +130,17 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
               </button>
             </div>
 
-            {/* List Loop Rendering */}
+            {/* List Loop Rendering view panel layout content */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
-                currentList.map((chat) => {
-                  // Fallbacks supporting basic user objects or structural chat models smoothly
-                  const targetUser = chat.participants?.find(p => p._id !== user?._id) || chat;
-                  const participantName = chat.name || targetUser.name || targetUser.username || "Chat User";
-                  const participantProfile = chat.profile || targetUser.profile;
-                  const displaySubText = chat.lastMessage || chat.email || "Click to open chat";
+                currentList.map((item) => {
+                  const participantName = `${item?.firstName || ""} ${item?.lastName || ""}`.trim() || "User";
+                  const participantProfile = item?.profile;
+                  const displaySubText = item?.lastMessage || item?.email || "Click to open conversation";
 
                   return (
                     <div 
-                      key={chat._id || chat.id} 
+                      key={item?._id} 
                       className="p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
                       <div className="h-9 w-9 rounded-full overflow-hidden border border-gray-100 shrink-0 relative bg-gray-50 flex items-center justify-center">
@@ -151,7 +154,7 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <h4 className="text-xs font-semibold text-gray-800 truncate">{participantName}</h4>
-                          {chat.unreadCount > 0 && (
+                          {(item.unreadCount > 0 || item.isUnread) && (
                             <span className="text-[9px] bg-[#2A836D] text-white font-bold px-1.5 py-0.5 rounded-full shrink-0">
                               New
                             </span>
@@ -164,7 +167,7 @@ export default function TopNavbar({ conversations = [], refreshConversations }) 
                 })
               ) : (
                 <div className="p-10 text-center text-xs text-gray-400 font-light">
-                  No conversations open yet
+                  {activeTab === "unread" ? "No unread messages" : "No conversations open yet"}
                 </div>
               )}
             </div>
