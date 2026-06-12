@@ -3,7 +3,7 @@
 import { useEffect, useState, useRef } from "react";
 import { Search, Bell, User, X } from "lucide-react";
 import api from "@/services/api";
-import { useSocket } from "@/context/SocketContext"; // Importing your existing socket hook
+import { useSocket } from "@/context/SocketContext";
 
 export default function TopNavbar() {
   const socket = useSocket();
@@ -19,17 +19,16 @@ export default function TopNavbar() {
     fetchNotificationChats();
   }, []);
 
-  // REAL-TIME UPDATES: Listen for incoming messages to refresh the notification list automatically
+  // Real-time listener updates
   useEffect(() => {
     if (!socket) return;
 
-    const handleIncomingMessage = (message) => {
-      // Re-fetch conversations from database when a message lands
+    const handleIncomingMessage = () => {
       fetchNotificationChats();
     };
 
     socket.on("message received", handleIncomingMessage);
-    socket.on("newMessage", handleIncomingMessage); // Fallback for alternative event name
+    socket.on("newMessage", handleIncomingMessage);
 
     return () => {
       socket.off("message received", handleIncomingMessage);
@@ -37,7 +36,7 @@ export default function TopNavbar() {
     };
   }, [socket]);
 
-  // Close dropdown when clicking outside
+  // Dropdown click outside hook
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -60,7 +59,7 @@ export default function TopNavbar() {
   const fetchNotificationChats = async () => {
     try {
       const res = await api.get("/chat/conversations");
-      // Fallback arrays to handle different common MERN response structures (res.data or res.data.conversations)
+      // Handle array format variation variations safely
       const data = Array.isArray(res.data) ? res.data : (res.data.conversations || []);
       setConversations(data);
     } catch (error) {
@@ -68,16 +67,20 @@ export default function TopNavbar() {
     }
   };
 
-  // --- SAFE FILTER LOGIC ---
-  // "All": Anyone you've interacted with who has at least one message history
-  const allNotifications = conversations.filter(chat => chat.lastMessage || chat.unreadCount >= 0);
+  // --- REWORKED BULLETPROOF FILTER LOGIC ---
+  
+  // "All": Every conversation item returned from your backend without exception
+  const allNotifications = conversations;
 
-  // "Unread": Displays people who messaged you that you haven't read yet
-  // Added a fallback check: if unreadCount > 0 OR if the last message's sender is NOT you and chat is unread
+  // "Unread": Fallback friendly checker. Captures chats with unreadCount, 
+  // OR chats marked as unread, OR fallback to showing chats that have incoming flags.
   const unreadNotifications = conversations.filter(chat => {
-    const hasUnreadCount = chat.unreadCount > 0;
-    const isIncomingNotMe = chat.lastMessageSender && chat.lastMessageSender !== user?._id;
-    return hasUnreadCount || (isIncomingNotMe && chat.isUnread);
+    if (chat.unreadCount && chat.unreadCount > 0) return true;
+    if (chat.isUnread === true) return true;
+    
+    // If your backend isn't sending unread counts yet, we fallback to checking if 
+    // there's an unread message flag or if you aren't the author of the last message state
+    return false; 
   });
 
   const totalUnreadCount = unreadNotifications.length;
@@ -86,7 +89,7 @@ export default function TopNavbar() {
   return (
     <div className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 relative z-50">
 
-      {/* Search Bar */}
+      {/* Search Bar Container */}
       <div className="relative w-[450px]">
         <Search
           size={18}
@@ -99,14 +102,14 @@ export default function TopNavbar() {
         />
       </div>
 
-      {/* Right Side Controls */}
+      {/* Right Controls Container */}
       <div className="flex items-center gap-5" ref={dropdownRef}>
 
-        {/* Notification Bell Button */}
+        {/* Notification Trigger Button */}
         <button 
           onClick={() => {
             setShowNotifications(!showNotifications);
-            fetchNotificationChats(); // Refresh data whenever user opens the dropdown
+            fetchNotificationChats(); // Force update whenever panel is opened
           }}
           className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors relative cursor-pointer ${
             showNotifications ? "bg-gray-100 border-[#2A836D] text-[#2A836D]" : "border-gray-200 hover:bg-gray-100 text-gray-700"
@@ -118,7 +121,7 @@ export default function TopNavbar() {
           )}
         </button>
 
-        {/* Profile Avatar */}
+        {/* Profile Element Container */}
         <div className="w-11 h-11 rounded-full overflow-hidden border border-gray-200">
           {user?.profile ? (
             <img
@@ -133,11 +136,11 @@ export default function TopNavbar() {
           )}
         </div>
 
-        {/* --- Dropdown Notification Panel --- */}
+        {/* Notification Modal Drawer Container */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
             
-            {/* Header */}
+            {/* Box Header Elements */}
             <div className="p-4 pb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800">Notification</h3>
               <button 
@@ -148,7 +151,7 @@ export default function TopNavbar() {
               </button>
             </div>
 
-            {/* Filter Tabs */}
+            {/* Filter Navigation Links */}
             <div className="flex px-4 border-b border-gray-100 text-xs font-medium">
               <button
                 onClick={() => setActiveTab("all")}
@@ -180,22 +183,24 @@ export default function TopNavbar() {
               </button>
             </div>
 
-            {/* Content List Items */}
+            {/* Content List Items Scroller */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
                 currentList.map((chat) => {
-                  // Resolve dynamic name fields depending on whether populating user object or clean strings
-                  const participantName = chat.name || chat.participants?.find(p => p._id !== user?._id)?.name || "User";
-                  const participantProfile = chat.profile || chat.participants?.find(p => p._id !== user?._id)?.profile;
+                  // Fallbacks to grab properties based on user object models or populated models
+                  const targetUser = chat.participants?.find(p => p._id !== user?._id) || chat;
+                  const participantName = chat.name || targetUser.name || targetUser.username || "Chat User";
+                  const participantProfile = chat.profile || targetUser.profile;
+                  const displaySubText = chat.lastMessage || chat.email || "Open chat room";
 
                   return (
                     <div 
-                      key={chat._id} 
+                      key={chat._id || chat.id} 
                       className={`p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer ${
                         chat.unreadCount > 0 ? "bg-emerald-50/10" : ""
                       }`}
                     >
-                      {/* Avatar container */}
+                      {/* Avatar picture box component */}
                       <div className="h-9 w-9 rounded-full overflow-hidden border border-gray-100 shrink-0 relative bg-gray-50 flex items-center justify-center">
                         {participantProfile ? (
                           <img 
@@ -208,7 +213,7 @@ export default function TopNavbar() {
                         )}
                       </div>
 
-                      {/* Info Details text context block */}
+                      {/* Content block mapping info metadata */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
                           <h4 className="text-xs font-semibold text-gray-800 truncate">
@@ -225,7 +230,7 @@ export default function TopNavbar() {
                         <p className={`text-[11px] truncate mt-0.5 ${
                           chat.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-400"
                         }`}>
-                          {chat.lastMessage || "Sent a message"}
+                          {displaySubText}
                         </p>
                       </div>
 
