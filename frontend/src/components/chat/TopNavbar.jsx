@@ -134,12 +134,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
                   const participantProfile = item?.profile;
                   
                   // Cascading verification layer lookup to catch and match structural text strings fields
-                  const displaySubText = 
-                    lastMessagesMap[item?._id] || 
-                    item?.lastMessage?.text || 
-                    item?.lastMessage || 
-                    item?.email || 
-                    "No messages exchanged yet";
+                  const displaySubText = lastMessagesMap[item?._id] || "No messages exchanged yet";
 
                   return (
                     <div 

@@ -54,52 +54,58 @@ export default function ChatWindow({ selectedUser }) {
     };
   }, [socket, selectedUser]);
 
-  // Send Text Message
-  const handleSendMessage = async (text) => {
-    try {
-      const res = await api.post("/message/send", {
-        sender: currentUser._id,
-        receiver: selectedUser._id,
-        text,
-      });
+  // Find your handleSendMessage function and add the onMessageSent line at the end:
+const handleSendMessage = async (text) => {
+  try {
+    const res = await api.post("/message/send", {
+      sender: currentUser._id,
+      receiver: selectedUser._id,
+      text,
+    });
 
-      setMessages((prev) => [...prev, res.data.message]);
+    setMessages((prev) => [...prev, res.data.message]);
 
-      socket.emit("sendMessage", {
-        ...res.data.message,
-        sender: currentUser._id,
-        receiver: selectedUser._id,
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
+    socket.emit("sendMessage", {
+      ...res.data.message,
+      sender: currentUser._id,
+      receiver: selectedUser._id,
+    });
 
-  // Send File Message
-  const handleSendFile = async (file) => {
-    try {
-      const formData = new FormData();
-      formData.append("sender", currentUser._id);
-      formData.append("receiver", selectedUser._id);
-      formData.append("file", file);
+    // Add this to refresh the layout container
+    if (onMessageSent) onMessageSent();
+  } catch (error) {
+    console.log(error);
+  }
+};
 
-      const res = await api.post("/message/send-file", formData, {
-        headers: {
-          "Content-Type": "multipart/form-data",
-        },
-      });
+// Find your handleSendFile function and add the onMessageSent line at the end:
+const handleSendFile = async (file) => {
+  try {
+    const formData = new FormData();
+    formData.append("sender", currentUser._id);
+    formData.append("receiver", selectedUser._id);
+    formData.append("file", file);
 
-      setMessages((prev) => [...prev, res.data.message]);
+    const res = await api.post("/message/send-file", formData, {
+      headers: {
+        "Content-Type": "multipart/form-data",
+      },
+    });
 
-      socket.emit("sendMessage", {
-        ...res.data.message,
-        sender: currentUser._id,
-        receiver: selectedUser._id,
-      });
-    } catch (error) {
-      console.log(error);
-    }
-  };
+    setMessages((prev) => [...prev, res.data.message]);
+
+    socket.emit("sendMessage", {
+      ...res.data.message,
+      sender: currentUser._id,
+      receiver: selectedUser._id,
+    });
+
+    // Add this to refresh the layout container
+    if (onMessageSent) onMessageSent();
+  } catch (error) {
+    console.log(error);
+  }
+};
 
   // Safe fallback if selectedUser is missing
   if (!selectedUser) {

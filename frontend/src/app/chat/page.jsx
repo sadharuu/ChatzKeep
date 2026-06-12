@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Sidebar from "@/components/chat/Sidebar";
 import TopNavbar from "@/components/chat/TopNavbar";
 import ChatList from "@/components/chat/ChatList";
@@ -12,9 +12,19 @@ export default function ChatPage() {
   const socket = useSocket();
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
-  
-  // Dynamic persistent storage for the last text snippet of each contact
   const [lastMessagesMap, setLastMessagesMap] = useState({});
+
+  // Get the logged-in user profile safely from local state variables
+  const [currentUser, setCurrentUser] = useState(null);
+
+  useEffect(() => {
+    if (typeof window !== "undefined") {
+      const storedUser = localStorage.getItem("user");
+      if (storedUser) {
+        setCurrentUser(JSON.parse(storedUser));
+      }
+    }
+  }, []);
 
   const fetchUsers = async () => {
     try {
@@ -30,57 +40,79 @@ export default function ChatPage() {
     }
   };
 
+  // Fetch the latest message snippet from your verified endpoint
+  const fetchLastMessageFromHistory = async (targetUserId) => {
+    if (!currentUser?._id || !targetUserId) return;
+    try {
+      const res = await api.get(`/message/${currentUser._id}/${targetUserId}`);
+      const historyMessages = res.data?.messages || [];
+      
+      if (historyMessages.length > 0) {
+        const latestMsg = historyMessages[historyMessages.length - 1];
+        // Parse strings or attachment fallbacks safely
+        const textSnippet = latestMsg.text || (latestMsg.file ? "Sent a file attachment" : "");
+        
+        if (textSnippet) {
+          setLastMessagesMap((prev) => ({
+            ...prev,
+            [targetUserId]: textSnippet,
+          }));
+        }
+      }
+    } catch (error) {
+      console.log(`Could not load message snapshots for user ${targetUserId}:`, error);
+    }
+  };
+
+  // Initial data loading once profile information is found
   useEffect(() => {
     fetchUsers();
-  }, []);
+  }, [currentUser]);
 
-  // Listen to active socket message pipelines
+  // Read message logs once user list is ready
+  useEffect(() => {
+    if (users.length > 0 && currentUser?._id) {
+      users.forEach((u) => {
+        if (u?._id) fetchLastMessageFromHistory(u._id);
+      });
+    }
+  }, [users, currentUser]);
+
+  // Catching inbound message notifications over socket
   useEffect(() => {
     if (!socket) return;
 
-    const handleIncomingMessage = (message) => {
-      if (!message) return;
+    const handleSocketIncoming = (newMessage) => {
+      if (!newMessage) return;
 
-      // Extract the plain text content safely across common backend field names
-      const textSnippet = message.text || message.content || message.message || message.body;
-      const senderId = message.sender?._id || message.sender || message.senderId;
+      // Extract the sender id matching the properties used by your ChatWindow component
+      const senderId = newMessage.sender?._id || newMessage.sender;
+      const textSnippet = newMessage.text || (newMessage.file ? "Sent a file attachment" : "New message");
 
-      if (senderId && textSnippet) {
+      if (senderId) {
         setLastMessagesMap((prev) => ({
           ...prev,
           [senderId]: textSnippet,
         }));
       }
+      
+      // Keep online user structures up-to-date
       fetchUsers();
     };
 
-    // Subscribing to all possible incoming event hooks
-    socket.on("message received", handleIncomingMessage);
-    socket.on("newMessage", handleIncomingMessage);
-    socket.on("msg-receive", handleIncomingMessage);
+    socket.on("receiveMessage", handleSocketIncoming);
 
     return () => {
-      socket.off("message received", handleIncomingMessage);
-      socket.off("newMessage", handleIncomingMessage);
-      socket.off("msg-receive", handleIncomingMessage);
+      socket.off("receiveMessage", handleSocketIncoming);
     };
   }, [socket]);
 
-  // Intercept your own sent messages from the text input bar
-  const handleLocalMessageSent = (messagePayload) => {
-    if (selectedUser?._id && messagePayload) {
-      // Pull plain text strings out safely from what your input box returns
-      const userTextMessage = 
-        typeof messagePayload === "string" 
-          ? messagePayload 
-          : (messagePayload.text || messagePayload.content || messagePayload.message || "Sent a message");
-
-      setLastMessagesMap((prev) => ({
-        ...prev,
-        [selectedUser._id]: userTextMessage,
-      }));
-    }
+  // Handler to capture messages sent by you from the current screen workspace
+  const handleLocalUpdate = () => {
     fetchUsers();
+    if (selectedUser?._id) {
+      fetchLastMessageFromHistory(selectedUser._id);
+    }
   };
 
   return (
@@ -106,7 +138,11 @@ export default function ChatPage() {
 
           <div className="flex-1 overflow-hidden">
             {selectedUser ? (
-              <ChatWindow selectedUser={selectedUser} onMessageSent={handleLocalMessageSent} />
+              <ChatWindow 
+                selectedUser={selectedUser} 
+                key={selectedUser._id}
+                onMessageSent={handleLocalUpdate} // Keeps synchronization fluid
+              />
             ) : (
               <div className="h-full w-full flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
                 Select a conversation to start chatting
