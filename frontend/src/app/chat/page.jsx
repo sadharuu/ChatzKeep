@@ -12,15 +12,16 @@ export default function ChatPage() {
   const socket = useSocket();
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
+  
+  // State to hold the latest message text map for each user: { userId: "message text" }
+  const [lastMessagesMap, setLastMessagesMap] = useState({});
 
   const fetchUsers = async () => {
     try {
-      // Hits the verified working endpoint from your ChatList component
       const res = await api.get("/user/all");
       const fetchedUsers = res.data?.users || [];
       setUsers(fetchedUsers);
       
-      // Keep the default selection behavior safe
       if (fetchedUsers.length > 0 && !selectedUser) {
         setSelectedUser(fetchedUsers[0]);
       }
@@ -33,12 +34,25 @@ export default function ChatPage() {
     fetchUsers();
   }, []);
 
-  // Real-time socket framework integration
+  // Socket framework integration to catch the text of incoming/outgoing messages
   useEffect(() => {
     if (!socket) return;
 
     const handleIncomingMessage = (message) => {
-      // Whenever a message arrives, we update our user metrics
+      if (!message) return;
+
+      // Extract the sender ID and the message text based on your MERN backend schema
+      const senderId = message.sender?._id || message.sender || message.senderId;
+      const messageText = message.text || message.content || message.message || "Sent an attachment";
+
+      if (senderId) {
+        setLastMessagesMap((prev) => ({
+          ...prev,
+          [senderId]: messageText,
+        }));
+      }
+
+      // Refresh layout data statuses safely
       fetchUsers();
     };
 
@@ -49,23 +63,35 @@ export default function ChatPage() {
       socket.off("message received", handleIncomingMessage);
       socket.off("newMessage", handleIncomingMessage);
     };
-  }, [socket, selectedUser]);
+  }, [socket]);
+
+  // Callback function to capture messages typed and sent by YOU in the ChatWindow
+  const handleLocalMessageSent = (newMessageData) => {
+    if (selectedUser?._id && newMessageData) {
+      const messageText = newMessageData.text || newMessageData.content || newMessageData.message || "Sent a message";
+      setLastMessagesMap((prev) => ({
+        ...prev,
+        [selectedUser._id]: messageText,
+      }));
+    }
+    fetchUsers();
+  };
 
   return (
     <div className="h-screen bg-[#F8F9FA] flex overflow-hidden">
       <Sidebar />
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Pass the verified users down to the TopNavbar */}
+        {/* Pass down the last messages map to the navbar */}
         <TopNavbar 
           users={users} 
           selectedUser={selectedUser} 
           refreshUsers={fetchUsers} 
+          lastMessagesMap={lastMessagesMap}
         />
 
         <div className="flex flex-1 overflow-hidden">
           <div className="w-[320px] bg-white border-r overflow-hidden">
-            {/* Pass state and handlers directly down */}
             <ChatList
               selectedUser={selectedUser}
               setSelectedUser={setSelectedUser}
@@ -75,7 +101,7 @@ export default function ChatPage() {
 
           <div className="flex-1 overflow-hidden">
             {selectedUser ? (
-              <ChatWindow selectedUser={selectedUser} onMessageSent={fetchUsers} />
+              <ChatWindow selectedUser={selectedUser} onMessageSent={handleLocalMessageSent} />
             ) : (
               <div className="h-full w-full flex items-center justify-center bg-gray-50 text-gray-400 text-sm">
                 Select a conversation to start chatting

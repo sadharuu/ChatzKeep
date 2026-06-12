@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from "react";
 import { Search, Bell, User, X } from "lucide-react";
 import api from "@/services/api";
 
-export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
+export default function TopNavbar({ users = [], selectedUser, refreshUsers, lastMessagesMap = {} }) {
   const [user, setUser] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); 
@@ -34,15 +34,11 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
   };
 
   // --- RENDERING FILTER LOGIC ---
-  // "All": Shows every person you've messaged/interacted with
   const allNotifications = users;
 
-  // "Unread": Shows only the people who messaged you while their chat window was closed
+  // Filters users who have an active unread flag or counter status
   const unreadNotifications = users.filter((u) => {
-    // Exclude the currently open chat session from flagging unread states
     if (selectedUser?._id === u?._id) return false;
-    
-    // Check fields commonly used by messaging backends (unreadCount, isUnread, or custom notification flags)
     return u.unreadCount > 0 || u.isUnread === true || u.hasNewMessage === true;
   });
 
@@ -69,7 +65,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
         <button 
           onClick={() => {
             setShowNotifications(!showNotifications);
-            if (refreshUsers) refreshUsers(); // Refresh statuses when opened
+            if (refreshUsers) refreshUsers();
           }}
           className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors relative cursor-pointer ${
             showNotifications ? "bg-gray-100 border-[#2A836D] text-[#2A836D]" : "border-gray-200 hover:bg-gray-100 text-gray-700"
@@ -92,7 +88,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
           )}
         </div>
 
-        {/* Dropdown Container overlay */}
+        {/* Dropdown Notification panel rendering overlay layout */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
             <div className="p-4 pb-2 flex items-center justify-between">
@@ -102,7 +98,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
               </button>
             </div>
 
-            {/* Nav Filter Navigation Tabs */}
+            {/* Filter Navigation Tabs */}
             <div className="flex px-4 border-b border-gray-100 text-xs font-medium">
               <button
                 onClick={() => setActiveTab("all")}
@@ -130,13 +126,15 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
               </button>
             </div>
 
-            {/* List Loop Rendering view panel layout content */}
+            {/* List Loop View layout components */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
                 currentList.map((item) => {
                   const participantName = `${item?.firstName || ""} ${item?.lastName || ""}`.trim() || "User";
                   const participantProfile = item?.profile;
-                  const displaySubText = item?.lastMessage || item?.email || "Click to open conversation";
+                  
+                  // FIXED: Changed from item?.email to look up the mapped last message string value
+                  const displaySubText = lastMessagesMap[item?._id] || item?.lastMessage || "No messages exchanged yet";
 
                   return (
                     <div 
@@ -160,6 +158,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers }) {
                             </span>
                           )}
                         </div>
+                        {/* Will cleanly display the message string or fallback phrase snippet */}
                         <p className="text-[11px] truncate mt-0.5 text-gray-400">{displaySubText}</p>
                       </div>
                     </div>
