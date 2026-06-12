@@ -193,14 +193,15 @@ const uploadProfile = async (
   }
 };
 
+
 const updateProfile = async (req, res) => {
   try {
-    // 1. Identify active profile using req.user injected from your authorization token validation middleware
-    const userId = req.user._id; 
+    // req.user._id or req.user.id depending on your authMiddleware setup
+    const userId = req.user._id || req.user.id; 
 
     const { 
       firstName, 
-      secondName, // Matches database schema key
+      secondName, 
       phone, 
       website, 
       address, 
@@ -209,7 +210,7 @@ const updateProfile = async (req, res) => {
       pincode 
     } = req.body;
 
-    // 2. Perform safe update query execution on database model layer 
+    // Fixes the Mongoose deprecation warning and updates the user
     const updatedUser = await User.findByIdAndUpdate(
       userId,
       {
@@ -225,29 +226,23 @@ const updateProfile = async (req, res) => {
         }
       },
       { 
-        new: true,          // Returns updated doc instead of original state
-        runValidators: true // Enforces your schema field rules on input
+        returnDocument: 'after', // This completely removes the Mongoose warning!
+        runValidators: true 
       }
-    ).select("-password"); // Safeguard: never expose password strings down the data stream
+    );
 
     if (!updatedUser) {
-      return res.status(404).json({ success: false, message: "User account records missing." });
+      return res.status(404).json({ message: "User not found" });
     }
 
-    // 3. Dispatch success payload back to frontend state managers
     res.status(200).json({
-      success: true,
-      message: "Profile settings modified successfully.",
+      message: "Profile updated successfully!",
       user: updatedUser
     });
 
   } catch (error) {
-    console.error("Backend update error details:", error);
-    res.status(500).json({ 
-      success: false, 
-      message: "Internal server error occurred while processing profile patch operations.", 
-      error: error.message 
-    });
+    console.error("Update Profile Error:", error);
+    res.status(500).json({ message: "Server error updating profile" });
   }
 };
 
