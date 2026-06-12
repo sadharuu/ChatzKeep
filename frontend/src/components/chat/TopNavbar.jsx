@@ -137,7 +137,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
                 currentList.map((item) => {
-                  const participantName = `${item?.firstName || ""} ${item?.lastName || ""}`.trim() || "User";
+                  const participantName = `${item?.firstName || ""} ${item?.secondName || ""}`.trim() || "User";
                   const participantProfile = item?.profile;
                   const displaySubText = lastMessagesMap[item?._id] || "No messages exchanged yet";
 

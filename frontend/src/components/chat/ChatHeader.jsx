@@ -32,7 +32,7 @@ export default function ChatHeader({ selectedUser }) {
           <div>
             <h3 className="font-semibold text-gray-800">
               {selectedUser.firstName || ""}{" "}
-              {selectedUser.lastName || ""}
+              {selectedUser.secondName || ""}
             </h3>
             <p className="text-sm text-green-500">Online</p>
           </div>

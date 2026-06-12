@@ -8,8 +8,8 @@ export default function ChatList({ selectedUser, setSelectedUser, users = [] }) 
 
   const filteredUsers = users.filter((user) => {
     const firstName = user?.firstName || "";
-    const lastName = user?.lastName || "";
-    const fullName = `${firstName} ${lastName}`.toLowerCase();
+    const secondName = user?.secondName || "";
+    const fullName = `${firstName} ${secondName}`.toLowerCase();
     return fullName.includes(search.toLowerCase());
   });
 
@@ -50,7 +50,7 @@ export default function ChatList({ selectedUser, setSelectedUser, users = [] }) 
 
             <div className="flex-1 min-w-0">
               <h4 className="font-medium text-sm text-gray-800 truncate">
-                {user?.firstName || ""} {user?.lastName || ""}
+                {user?.firstName || ""} {user?.secondName || ""}
               </h4>
               <p className="text-xs text-gray-500 truncate">{user?.email || ""}</p>
             </div>
