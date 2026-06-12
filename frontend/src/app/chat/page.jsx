@@ -13,7 +13,7 @@ export default function ChatPage() {
   const [selectedUser, setSelectedUser] = useState(null);
   const [users, setUsers] = useState([]);
   
-  // State to hold the latest message text map for each user: { userId: "message text" }
+  // Dynamic persistent storage for the last text snippet of each contact
   const [lastMessagesMap, setLastMessagesMap] = useState({});
 
   const fetchUsers = async () => {
@@ -34,44 +34,50 @@ export default function ChatPage() {
     fetchUsers();
   }, []);
 
-  // Socket framework integration to catch the text of incoming/outgoing messages
+  // Listen to active socket message pipelines
   useEffect(() => {
     if (!socket) return;
 
     const handleIncomingMessage = (message) => {
       if (!message) return;
 
-      // Extract the sender ID and the message text based on your MERN backend schema
+      // Extract the plain text content safely across common backend field names
+      const textSnippet = message.text || message.content || message.message || message.body;
       const senderId = message.sender?._id || message.sender || message.senderId;
-      const messageText = message.text || message.content || message.message || "Sent an attachment";
 
-      if (senderId) {
+      if (senderId && textSnippet) {
         setLastMessagesMap((prev) => ({
           ...prev,
-          [senderId]: messageText,
+          [senderId]: textSnippet,
         }));
       }
-
-      // Refresh layout data statuses safely
       fetchUsers();
     };
 
+    // Subscribing to all possible incoming event hooks
     socket.on("message received", handleIncomingMessage);
     socket.on("newMessage", handleIncomingMessage);
+    socket.on("msg-receive", handleIncomingMessage);
 
     return () => {
       socket.off("message received", handleIncomingMessage);
       socket.off("newMessage", handleIncomingMessage);
+      socket.off("msg-receive", handleIncomingMessage);
     };
   }, [socket]);
 
-  // Callback function to capture messages typed and sent by YOU in the ChatWindow
-  const handleLocalMessageSent = (newMessageData) => {
-    if (selectedUser?._id && newMessageData) {
-      const messageText = newMessageData.text || newMessageData.content || newMessageData.message || "Sent a message";
+  // Intercept your own sent messages from the text input bar
+  const handleLocalMessageSent = (messagePayload) => {
+    if (selectedUser?._id && messagePayload) {
+      // Pull plain text strings out safely from what your input box returns
+      const userTextMessage = 
+        typeof messagePayload === "string" 
+          ? messagePayload 
+          : (messagePayload.text || messagePayload.content || messagePayload.message || "Sent a message");
+
       setLastMessagesMap((prev) => ({
         ...prev,
-        [selectedUser._id]: messageText,
+        [selectedUser._id]: userTextMessage,
       }));
     }
     fetchUsers();
@@ -82,7 +88,6 @@ export default function ChatPage() {
       <Sidebar />
 
       <div className="flex flex-col flex-1 overflow-hidden">
-        {/* Pass down the last messages map to the navbar */}
         <TopNavbar 
           users={users} 
           selectedUser={selectedUser} 

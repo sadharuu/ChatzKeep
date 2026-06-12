@@ -33,10 +33,10 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
     }
   };
 
-  // --- RENDERING FILTER LOGIC ---
+  // --- FILTER LOGIC ---
   const allNotifications = users;
 
-  // Filters users who have an active unread flag or counter status
+  // Filter contacts with an unread indicator or active unread counter state values
   const unreadNotifications = users.filter((u) => {
     if (selectedUser?._id === u?._id) return false;
     return u.unreadCount > 0 || u.isUnread === true || u.hasNewMessage === true;
@@ -58,10 +58,10 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
         />
       </div>
 
-      {/* Right Controls Container */}
+      {/* Controls Container */}
       <div className="flex items-center gap-5" ref={dropdownRef}>
         
-        {/* Notification Bell */}
+        {/* Bell Trigger */}
         <button 
           onClick={() => {
             setShowNotifications(!showNotifications);
@@ -77,7 +77,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
           )}
         </button>
 
-        {/* Profile Avatar Frame */}
+        {/* Profile Avatar Component */}
         <div className="w-11 h-11 rounded-full overflow-hidden border border-gray-200">
           {user?.profile ? (
             <img src={user.profile} alt="Profile" className="w-full h-full object-cover" />
@@ -88,7 +88,7 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
           )}
         </div>
 
-        {/* Dropdown Notification panel rendering overlay layout */}
+        {/* Notification Panel Overlay Dropdown Box */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
             <div className="p-4 pb-2 flex items-center justify-between">
@@ -126,15 +126,20 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
               </button>
             </div>
 
-            {/* List Loop View layout components */}
+            {/* List Scroller Component Layer Wrapper */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
                 currentList.map((item) => {
                   const participantName = `${item?.firstName || ""} ${item?.lastName || ""}`.trim() || "User";
                   const participantProfile = item?.profile;
                   
-                  // FIXED: Changed from item?.email to look up the mapped last message string value
-                  const displaySubText = lastMessagesMap[item?._id] || item?.lastMessage || "No messages exchanged yet";
+                  // Cascading verification layer lookup to catch and match structural text strings fields
+                  const displaySubText = 
+                    lastMessagesMap[item?._id] || 
+                    item?.lastMessage?.text || 
+                    item?.lastMessage || 
+                    item?.email || 
+                    "No messages exchanged yet";
 
                   return (
                     <div 
@@ -158,7 +163,6 @@ export default function TopNavbar({ users = [], selectedUser, refreshUsers, last
                             </span>
                           )}
                         </div>
-                        {/* Will cleanly display the message string or fallback phrase snippet */}
                         <p className="text-[11px] truncate mt-0.5 text-gray-400">{displaySubText}</p>
                       </div>
                     </div>
