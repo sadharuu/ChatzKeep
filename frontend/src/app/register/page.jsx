@@ -20,6 +20,7 @@ export default function RegisterPage() {
   const [step, setStep] = useState(1);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+  const [successMessage, setSuccessMessage] = useState('');
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -28,22 +29,37 @@ export default function RegisterPage() {
 
   const handleNextStep = (e) => {
     e.preventDefault();
+    setError('');
+
     if (!formData.email || !formData.password || !formData.phone) {
       setError('Please fill in all required fields.');
       return;
     }
-    setError('');
+
+    // Password Length Validation (Min 6 characters)
+    if (formData.password.length < 6) {
+      setError('Password must be at least 6 characters long.');
+      return;
+    }
+
     setStep(2);
   };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-
     setLoading(true);
     setError("");
+    setSuccessMessage("");
 
-    // Split the email prefix into two parts if a dot or underscore exists,
-    // otherwise default both to the prefix.
+    // Pincode Digits Validation (Exactly 6 digits)
+    const pincodeRegex = /^\d{6}$/;
+    if (!pincodeRegex.test(formData.pincode.trim())) {
+      setError('Pincode must be exactly 6 numeric digits.');
+      setLoading(false);
+      return;
+    }
+
+    // Split the email prefix into two parts if a dot or underscore exists
     const emailPrefix = formData.email.split("@")[0];
     const parts = emailPrefix.split(/[._-]/); 
     const fallbackFirstName = parts[0];
@@ -52,7 +68,7 @@ export default function RegisterPage() {
     try {
       const res = await api.post("/user/register", {
         firstName: fallbackFirstName, 
-        secondName: fallbackSecondName, // Changed from lastName to secondName
+        secondName: fallbackSecondName, 
         email: formData.email,
         password: formData.password,
         website: formData.website,
@@ -63,14 +79,16 @@ export default function RegisterPage() {
         pincode: formData.pincode,
       });
 
-      localStorage.setItem(
-        "token",
-        res.data.token
-      );
+      localStorage.setItem("token", res.data.token);
 
-      alert("Registration Successful");
+      // Show in-page inline success banner
+      setSuccessMessage("Registration successful! Redirecting to login...");
+      
+      // Delay redirect slightly so user can read the message
+      setTimeout(() => {
+        window.location.href = "/login";
+      }, 2000);
 
-      window.location.href = "/login";
     } catch (err) {
       setError(
         err.response?.data?.message ||
@@ -81,19 +99,17 @@ export default function RegisterPage() {
     }
   };
 
-  
   return (
     <div className="flex min-h-screen w-full flex-col md:flex-row bg-[#F8F9FA] font-custom antialiased">
       
       {/* LEFT SIDE: Multistep Form Fields Layout Wrapper */}
       <div className="flex flex-1 flex-col items-center justify-between p-6 md:p-12 min-h-screen md:min-h-0">
-        {/* Spacer to keep center card vertical parity */}
         <div className="hidden md:block"></div>
 
-        {/* Polished Form White Box Wrapper to avoid mobile stretching */}
+        {/* Polished Form White Box Wrapper */}
         <div className="w-full max-w-[400px] bg-white rounded-[32px] shadow-sm border border-gray-200 p-8 md:p-10 flex flex-col items-center my-auto">
           
-          {/* Logo Brand Header - Width and Height fixed per Next.js console warning */}
+          {/* Logo Brand Header */}
           <div className="mb-6 select-none relative w-[180px] h-[50px]">
             <Image 
               src="/images/logo.png" 
@@ -110,14 +126,22 @@ export default function RegisterPage() {
             Create an account to get started
           </p>
 
+          {/* Inline Error Banner */}
           {error && (
             <div className="w-full p-3 mb-4 text-xs text-red-600 bg-red-50 rounded-xl border border-red-100">
               {error}
             </div>
           )}
 
+          {/* Inline Success Banner */}
+          {successMessage && (
+            <div className="w-full p-3 mb-4 text-xs text-emerald-700 bg-emerald-50 rounded-xl border border-emerald-100 font-medium">
+              {successMessage}
+            </div>
+          )}
+
           {/* Form Step 1 View */}
-          {step === 1 && (
+          {step === 1 && !successMessage && (
             <form onSubmit={handleNextStep} className="w-full space-y-6">
               {/* Email Input */}
               <div className="relative">
@@ -138,7 +162,7 @@ export default function RegisterPage() {
               {/* Password Input */}
               <div className="relative">
                 <label className="absolute -top-2.5 left-4 bg-white px-1.5 text-xs font-medium text-gray-400">
-                  Password
+                  Password (min 6 characters)
                 </label>
                 <input
                   type="password"
@@ -192,7 +216,7 @@ export default function RegisterPage() {
           )}
 
           {/* Form Step 2 View */}
-          {step === 2 && (
+          {step === 2 && !successMessage && (
             <form onSubmit={handleSubmit} className="w-full space-y-6">
               {/* Address Input */}
               <div className="relative">
@@ -245,11 +269,12 @@ export default function RegisterPage() {
 
                 <div className="relative flex-1">
                   <label className="absolute -top-2.5 left-4 bg-white px-1.5 text-xs font-medium text-gray-400">
-                    Pincode
+                    Pincode (6 digits)
                   </label>
                   <input
                     type="text"
                     name="pincode"
+                    maxLength={6}
                     value={formData.pincode}
                     onChange={handleChange}
                     placeholder="641009"
@@ -294,10 +319,8 @@ export default function RegisterPage() {
         </p>
       </div>
 
-      {/* RIGHT SIDE: 3-LAYER FIGMA COMPILATION CONTAINER WITH SIZES PROP FIXED */}
+      {/* RIGHT SIDE: FIGMA DISPLAY CONTAINER */}
       <div className="hidden md:block flex-1 relative bg-[#1E5E4E] overflow-hidden">
-        
-        {/* LAYER 1: Green Background */}
         <Image
           src="/images/greenbg.png" 
           alt="Layer 1: Green Organic Base backdrop"
@@ -307,7 +330,6 @@ export default function RegisterPage() {
           sizes="50vw"
         />
 
-        {/* LAYER 2: Curly Wave Overlay */}
         <div className="absolute inset-0 mix-blend-normal opacity-40 z-10 pointer-events-none">
           <Image
             src="/images/curly.png" 
@@ -318,10 +340,7 @@ export default function RegisterPage() {
           />
         </div>
 
-        {/* TOP LAYER CONTENT STRATUM: Enhanced Rectangle and Image Cards */}
         <div className="absolute inset-0 flex flex-col items-center justify-center p-8 z-20 text-white">
-          
-          {/* THE MOCKUP QUOTE RECTANGLE BOX */}
           <div className="w-full max-w-[390px] bg-black/15 border border-white/10 backdrop-blur-md rounded-[28px] p-6 text-center shadow-xl mb-6">
             <h2 className="text-2xl font-semibold leading-snug tracking-wide select-none">
               Very good works are<br />waiting for you<br />
@@ -329,15 +348,13 @@ export default function RegisterPage() {
             </h2>
           </div>
           
-          {/* LAYER 3: Doctor Interactive Window Card Frame */}
-          <div className="relative w-full max-w-[390px] aspect-[4/5] rounded-[36px] overflow-hidden bg-white/10 backdrop-blur-lg border border-white/20 p-4 shadow-2xl transition-all duration-500 ease-in-out">
-            
+          <div className="relative w-full max-w-[390px] aspect-[4/5] rounded-[36px] overflow-hidden bg-white/10 backdrop-blur-lg border border-white/20 p-4 shadow-2xl">
             <div className="relative w-full h-full rounded-[26px] overflow-hidden">
               {step === 1 ? (
                 <Image
                   key="doc-image-1"
                   src="/images/register1.png" 
-                  alt="Layer 3 Variant A: Primary Medical Staff"
+                  alt="Primary Medical Staff"
                   fill
                   priority
                   className="object-cover object-top transition-all duration-500 transform scale-100"
@@ -347,7 +364,7 @@ export default function RegisterPage() {
                 <Image
                   key="doc-image-2"
                   src="/images/register2.png" 
-                  alt="Layer 3 Variant B: Doctor pointing variant"
+                  alt="Doctor variant"
                   fill
                   priority
                   className="object-cover object-top transition-all duration-500 transform scale-105"
@@ -355,7 +372,6 @@ export default function RegisterPage() {
                 />
               )}
             </div>
-
           </div>
         </div>
 
