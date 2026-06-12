@@ -3,40 +3,17 @@
 import { useEffect, useState, useRef } from "react";
 import { Search, Bell, User, X } from "lucide-react";
 import api from "@/services/api";
-import { useSocket } from "@/context/SocketContext";
 
-export default function TopNavbar() {
-  const socket = useSocket();
+export default function TopNavbar({ conversations = [], refreshConversations }) {
   const [user, setUser] = useState(null);
-  const [conversations, setConversations] = useState([]); 
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); 
-  
   const dropdownRef = useRef(null);
 
   useEffect(() => {
     fetchProfile();
-    fetchNotificationChats();
   }, []);
 
-  // Real-time listener updates
-  useEffect(() => {
-    if (!socket) return;
-
-    const handleIncomingMessage = () => {
-      fetchNotificationChats();
-    };
-
-    socket.on("message received", handleIncomingMessage);
-    socket.on("newMessage", handleIncomingMessage);
-
-    return () => {
-      socket.off("message received", handleIncomingMessage);
-      socket.off("newMessage", handleIncomingMessage);
-    };
-  }, [socket]);
-
-  // Dropdown click outside hook
   useEffect(() => {
     function handleClickOutside(event) {
       if (dropdownRef.current && !dropdownRef.current.contains(event.target)) {
@@ -52,35 +29,16 @@ export default function TopNavbar() {
       const res = await api.get("/user/me");
       setUser(res.data.user);
     } catch (error) {
-      console.log("Error fetching profile:", error);
+      console.log(error);
     }
   };
 
-  const fetchNotificationChats = async () => {
-    try {
-      const res = await api.get("/chat/conversations");
-      // Handle array format variation variations safely
-      const data = Array.isArray(res.data) ? res.data : (res.data.conversations || []);
-      setConversations(data);
-    } catch (error) {
-      console.log("Error fetching notifications data:", error);
-    }
-  };
-
-  // --- REWORKED BULLETPROOF FILTER LOGIC ---
-  
-  // "All": Every conversation item returned from your backend without exception
+  // --- FILTER LOGIC ---
   const allNotifications = conversations;
 
-  // "Unread": Fallback friendly checker. Captures chats with unreadCount, 
-  // OR chats marked as unread, OR fallback to showing chats that have incoming flags.
+  // Checks if unreadCount exists, or if a global unread flag matches true
   const unreadNotifications = conversations.filter(chat => {
-    if (chat.unreadCount && chat.unreadCount > 0) return true;
-    if (chat.isUnread === true) return true;
-    
-    // If your backend isn't sending unread counts yet, we fallback to checking if 
-    // there's an unread message flag or if you aren't the author of the last message state
-    return false; 
+    return (chat.unreadCount && chat.unreadCount > 0) || chat.isUnread === true;
   });
 
   const totalUnreadCount = unreadNotifications.length;
@@ -88,13 +46,10 @@ export default function TopNavbar() {
 
   return (
     <div className="h-20 bg-white border-b border-gray-200 flex items-center justify-between px-8 relative z-50">
-
-      {/* Search Bar Container */}
+      
+      {/* Search Bar */}
       <div className="relative w-[450px]">
-        <Search
-          size={18}
-          className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"
-        />
+        <Search size={18} className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400" />
         <input
           type="text"
           placeholder="Search candidate, vacancy etc..."
@@ -102,14 +57,14 @@ export default function TopNavbar() {
         />
       </div>
 
-      {/* Right Controls Container */}
+      {/* Right Controls */}
       <div className="flex items-center gap-5" ref={dropdownRef}>
-
-        {/* Notification Trigger Button */}
+        
+        {/* Bell Trigger */}
         <button 
           onClick={() => {
             setShowNotifications(!showNotifications);
-            fetchNotificationChats(); // Force update whenever panel is opened
+            if (refreshConversations) refreshConversations();
           }}
           className={`w-11 h-11 rounded-full border flex items-center justify-center transition-colors relative cursor-pointer ${
             showNotifications ? "bg-gray-100 border-[#2A836D] text-[#2A836D]" : "border-gray-200 hover:bg-gray-100 text-gray-700"
@@ -121,14 +76,10 @@ export default function TopNavbar() {
           )}
         </button>
 
-        {/* Profile Element Container */}
+        {/* Profile Avatar */}
         <div className="w-11 h-11 rounded-full overflow-hidden border border-gray-200">
           {user?.profile ? (
-            <img
-              src={user.profile}
-              alt="Profile"
-              className="w-full h-full object-cover"
-            />
+            <img src={user.profile} alt="Profile" className="w-full h-full object-cover" />
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
               <User size={20} className="text-gray-500" />
@@ -136,22 +87,17 @@ export default function TopNavbar() {
           )}
         </div>
 
-        {/* Notification Modal Drawer Container */}
+        {/* --- Notification Box Drawer Dropdown --- */}
         {showNotifications && (
           <div className="absolute right-8 top-16 w-[350px] bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden flex flex-col font-custom">
-            
-            {/* Box Header Elements */}
             <div className="p-4 pb-2 flex items-center justify-between">
               <h3 className="text-sm font-semibold text-gray-800">Notification</h3>
-              <button 
-                onClick={() => setShowNotifications(false)}
-                className="text-gray-400 hover:text-gray-600 transition-colors cursor-pointer"
-              >
+              <button onClick={() => setShowNotifications(false)} className="text-gray-400 hover:text-gray-600 transition-colors">
                 <X size={16} />
               </button>
             </div>
 
-            {/* Filter Navigation Links */}
+            {/* Filter Navigation Tabs */}
             <div className="flex px-4 border-b border-gray-100 text-xs font-medium">
               <button
                 onClick={() => setActiveTab("all")}
@@ -160,9 +106,7 @@ export default function TopNavbar() {
                 }`}
               >
                 All
-                {activeTab === "all" && (
-                  <div className="absolute bottom-0 left-0 right-4 h-[2px] bg-[#2A836D]" />
-                )}
+                {activeTab === "all" && <div className="absolute bottom-0 left-0 right-4 h-[2px] bg-[#2A836D]" />}
               </button>
               
               <button
@@ -177,71 +121,50 @@ export default function TopNavbar() {
                     {totalUnreadCount}
                   </span>
                 )}
-                {activeTab === "unread" && (
-                  <div className="absolute bottom-0 left-4 right-4 h-[2px] bg-[#2A836D]" />
-                )}
+                {activeTab === "unread" && <div className="absolute bottom-0 left-4 right-4 h-[2px] bg-[#2A836D]" />}
               </button>
             </div>
 
-            {/* Content List Items Scroller */}
+            {/* List Loop Rendering */}
             <div className="max-h-[340px] overflow-y-auto divide-y divide-gray-50">
               {currentList.length > 0 ? (
                 currentList.map((chat) => {
-                  // Fallbacks to grab properties based on user object models or populated models
+                  // Fallbacks supporting basic user objects or structural chat models smoothly
                   const targetUser = chat.participants?.find(p => p._id !== user?._id) || chat;
                   const participantName = chat.name || targetUser.name || targetUser.username || "Chat User";
                   const participantProfile = chat.profile || targetUser.profile;
-                  const displaySubText = chat.lastMessage || chat.email || "Open chat room";
+                  const displaySubText = chat.lastMessage || chat.email || "Click to open chat";
 
                   return (
                     <div 
                       key={chat._id || chat.id} 
-                      className={`p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer ${
-                        chat.unreadCount > 0 ? "bg-emerald-50/10" : ""
-                      }`}
+                      className="p-3 px-4 flex items-center gap-3 hover:bg-gray-50 transition-colors cursor-pointer"
                     >
-                      {/* Avatar picture box component */}
                       <div className="h-9 w-9 rounded-full overflow-hidden border border-gray-100 shrink-0 relative bg-gray-50 flex items-center justify-center">
                         {participantProfile ? (
-                          <img 
-                            src={participantProfile} 
-                            alt={participantName} 
-                            className="h-full w-full object-cover" 
-                          />
+                          <img src={participantProfile} alt={participantName} className="h-full w-full object-cover" />
                         ) : (
                           <User size={16} className="text-gray-400" />
                         )}
                       </div>
 
-                      {/* Content block mapping info metadata */}
                       <div className="flex-1 min-w-0">
                         <div className="flex items-center justify-between gap-1">
-                          <h4 className="text-xs font-semibold text-gray-800 truncate">
-                            {participantName}
-                          </h4>
-                          
+                          <h4 className="text-xs font-semibold text-gray-800 truncate">{participantName}</h4>
                           {chat.unreadCount > 0 && (
                             <span className="text-[9px] bg-[#2A836D] text-white font-bold px-1.5 py-0.5 rounded-full shrink-0">
-                              {chat.unreadCount} New
+                              New
                             </span>
                           )}
                         </div>
-                        
-                        <p className={`text-[11px] truncate mt-0.5 ${
-                          chat.unreadCount > 0 ? "text-gray-900 font-medium" : "text-gray-400"
-                        }`}>
-                          {displaySubText}
-                        </p>
+                        <p className="text-[11px] truncate mt-0.5 text-gray-400">{displaySubText}</p>
                       </div>
-
                     </div>
                   );
                 })
               ) : (
                 <div className="p-10 text-center text-xs text-gray-400 font-light">
-                  {activeTab === "unread" 
-                    ? "No unread messages right now" 
-                    : "No conversations open yet"}
+                  No conversations open yet
                 </div>
               )}
             </div>
