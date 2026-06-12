@@ -1,6 +1,7 @@
 import { Work_Sans } from 'next/font/google'; 
 import './globals.css';
 import { SocketProvider } from '@/context/SocketContext';
+import { NotificationProvider } from '@/context/NotificationContext';
 
 
 const mainFont = Work_Sans({
@@ -20,7 +21,9 @@ export default function RootLayout({ children }) {
     <html lang="en">
       <body className={`${mainFont.variable} font-custom antialiased`}>
         <SocketProvider>
-          {children}
+          <NotificationProvider>
+            {children}
+          </NotificationProvider>
         </SocketProvider>
       </body>
     </html>

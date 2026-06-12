@@ -60,7 +60,7 @@ export default function SettingsPage() {
     } catch (error) {
       console.log("Error loading profile:", error);
     } finally {
-      setLoading(false);
+      loading(false);
     }
   };
 
@@ -114,8 +114,8 @@ export default function SettingsPage() {
       {/* Main Content Layout Block */}
       <div className="flex-1 flex flex-col h-full overflow-hidden">
         
-        {/* Top Navbar */}
-        <TopNavbar />
+        {/* Top Navbar - Clean implementation pulling data from Context automatically */}
+        <TopNavbar selectedUser={null} />
         
         <input type="file" hidden ref={fileRef} onChange={handleProfileUpload}/>
         

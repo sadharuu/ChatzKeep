@@ -4,8 +4,13 @@ import { useEffect, useState, useRef } from "react";
 import { usePathname } from "next/navigation"; // Hook to detect active navigation tab
 import { Bell, User, X } from "lucide-react";
 import api from "@/services/api";
+import { useNotifications } from "@/context/NotificationContext";
 
-export default function TopNavbar({ users = [], selectedUser, refreshUsers, lastMessagesMap = {} }) {
+export default function TopNavbar({ selectedUser }) {
+  // --- CONSUME GLOBAL NOTIFICATION CONTEXT ---
+  // Replaces fallback parent parameters seamlessly to guarantee persistent tracking across routes
+  const { users, lastMessagesMap, refreshUsers } = useNotifications();
+
   const [user, setUser] = useState(null);
   const [showNotifications, setShowNotifications] = useState(false);
   const [activeTab, setActiveTab] = useState("all"); 
